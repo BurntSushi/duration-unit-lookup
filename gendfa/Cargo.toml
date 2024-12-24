@@ -1,0 +1,12 @@
+[package]
+name = "gendfa"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gendfa"
+path = "main.rs"
+
+[dependencies]
+anyhow = "1.0.94"
+regex-automata = "0.4.9"

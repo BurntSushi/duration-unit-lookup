@@ -1,0 +1,30 @@
+[package]
+name = "duration-unit-lookup"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = ["gendfa"]
+
+[lib]
+bench = false
+
+[[bench]]
+name = "designator-bench"
+harness = false
+path = "src/bench.rs"
+
+[dependencies]
+aho-corasick = "1.1.3"
+anyhow = "1.0.94"
+criterion = "0.5.1"
+phf = { version = "0.11", features = ["macros"] }
+
+[build-dependencies]
+cc = "1.2.5"
+
+[profile.release]
+debug = true
+
+[profile.bench]
+debug = true
