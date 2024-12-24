@@ -695,6 +695,12 @@ generated DFA) so much slower than both `gencdfa1` and `one-big-match`. The
 generated Assembly _looks_ like a state machine, so it seems like we're _close_
 to doing the right thing. But it's just not quite there.
 
+Fourthly, I didn't really explore the use of SIMD for this task. The
+`aho-corasick` crate does have a SIMD multi-pattern matcher (called Teddy),
+but because some of the labels are very short (one byte), my guess is that its
+fingerprinting approach won't work as well. But I should still add it to these
+benchmarks.
+
 [`aho-corasick`]: https://docs.rs/aho-corasick
 [`critcmp`]: https://github.com/BurntSushi/critcmp
 [Cichelli's method]: https://courses.cs.vt.edu/cs3114/Spring18/wmcquain/Notes/Supplemental/p17-cichelli.pdf
