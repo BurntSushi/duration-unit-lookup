@@ -31,6 +31,36 @@ fn one_big_match(c: &mut Criterion) {
     });
 }
 
+fn one_big_match_prefix(c: &mut Criterion) {
+    c.bench_function(&format!("one-big-match-prefix/short"), |b| {
+        b.iter(|| {
+            let input = bb(b"y 5 months");
+            let (unit, remaining) =
+                one_big_match_prefix::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Year);
+            assert_eq!(remaining, b" 5 months");
+        })
+    });
+    c.bench_function(&format!("one-big-match-prefix/medium"), |b| {
+        b.iter(|| {
+            let input = bb(b"months 5 days");
+            let (unit, remaining) =
+                one_big_match_prefix::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Month);
+            assert_eq!(remaining, b" 5 days");
+        })
+    });
+    c.bench_function(&format!("one-big-match-prefix/long"), |b| {
+        b.iter(|| {
+            let input = bb(b"milliseconds 5 nanoseconds");
+            let (unit, remaining) =
+                one_big_match_prefix::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Millisecond);
+            assert_eq!(remaining, b" 5 nanoseconds");
+        })
+    });
+}
+
 fn aho_corasick(c: &mut Criterion) {
     c.bench_function(&format!("aho-corasick/short"), |b| {
         b.iter(|| {
@@ -277,6 +307,7 @@ fn by_gencdfa1(c: &mut Criterion) {
 criterion::criterion_group!(
     benches,
     one_big_match,
+    one_big_match_prefix,
     aho_corasick,
     phf,
     by_trie1,

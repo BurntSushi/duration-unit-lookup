@@ -100,11 +100,11 @@ And to easily analyze them, consider using [`critcmp`]:
 
 ```
 $ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|phf|one-big-match|gendfa1|gencdfa1'
-group     friendly/by-gencdfa1/                  friendly/by-gendfa1/                   friendly/by-trie5/                     friendly/one-big-match/                friendly/phf/
------     ---------------------                  --------------------                   ------------------                     -----------------------                -------------
-long      1.00      4.7±0.05ns        ? ?/sec    3.46     16.2±0.11ns        ? ?/sec    2.24     10.5±0.06ns        ? ?/sec    1.76      8.2±0.14ns        ? ?/sec    3.64     17.0±0.15ns        ? ?/sec
-medium    1.00      3.9±0.18ns        ? ?/sec    2.49      9.8±0.04ns        ? ?/sec    1.25      4.9±0.10ns        ? ?/sec    1.35      5.3±0.09ns        ? ?/sec    3.49     13.8±0.22ns        ? ?/sec
-short     1.16      2.5±0.03ns        ? ?/sec    1.82      4.0±0.06ns        ? ?/sec    1.00      2.2±0.04ns        ? ?/sec    1.77      3.9±0.05ns        ? ?/sec    4.92     10.7±0.09ns        ? ?/sec
+group     friendly/by-gencdfa1/                  friendly/by-gendfa1/                   friendly/by-trie5/                     friendly/one-big-match-prefix/         friendly/one-big-match/                friendly/phf/
+-----     ---------------------                  --------------------                   ------------------                     ------------------------------         -----------------------                -------------
+long      1.90      4.8±0.12ns        ? ?/sec    5.16     13.0±0.05ns        ? ?/sec    4.32     10.9±0.19ns        ? ?/sec    1.00      2.5±0.06ns        ? ?/sec    2.60      6.6±0.25ns        ? ?/sec    6.57     16.6±0.08ns        ? ?/sec
+medium    1.77      3.5±0.11ns        ? ?/sec    3.99      7.9±0.03ns        ? ?/sec    3.16      6.2±0.09ns        ? ?/sec    1.00      2.0±0.06ns        ? ?/sec    2.12      4.2±0.09ns        ? ?/sec    6.85     13.6±0.09ns        ? ?/sec
+short     1.00      2.6±0.05ns        ? ?/sec    1.46      3.9±0.05ns        ? ?/sec    1.03      2.7±0.07ns        ? ?/sec    1.25      3.3±0.09ns        ? ?/sec    1.10      2.9±0.05ns        ? ?/sec    4.02     10.6±0.07ns        ? ?/sec
 ```
 
 Each technique in this repository has the same 3 benchmarks: parsing a short,
@@ -118,6 +118,8 @@ Here are all of the techniques benchmarked in this repository:
 * `one-big-match` is the `humantime` approach of scanning to find the full
 label, and then executing a `match` on the discovered label to see if it
 matches any of the known labels.
+* `one-big-match-prefix` is like `one-big-match`, but matches on slice
+prefixes.
 * `aho-corasick` uses the [`aho-corasick`] crate to parse unit designator
 labels.
 * `phf` uses the `phf` crate for perfect hashing to parse unit designator
@@ -205,25 +207,34 @@ So, using `by-trie5` as our "best overall" implementation, let's compare it
 with `one-big-match`:
 
 ```
-$ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|one-big-match'
+$ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|one-big-match/'
 group     friendly/by-trie5/                     friendly/one-big-match/
 -----     ------------------                     -----------------------
-long      1.27     10.5±0.06ns        ? ?/sec    1.00      8.2±0.14ns        ? ?/sec
-medium    1.00      4.9±0.10ns        ? ?/sec    1.08      5.3±0.09ns        ? ?/sec
-short     1.00      2.2±0.04ns        ? ?/sec    1.77      3.9±0.05ns        ? ?/sec
+long      1.66     10.9±0.19ns        ? ?/sec    1.00      6.6±0.25ns        ? ?/sec
+medium    1.49      6.2±0.09ns        ? ?/sec    1.00      4.2±0.09ns        ? ?/sec
+short     1.00      2.7±0.07ns        ? ?/sec    1.07      2.9±0.05ns        ? ?/sec
 ```
 
-It actually seems like `by-trie5` does a bit better here overall. It's slower
-on `long`, but not by the same margin that `one-big-match` is slower than
-`by-trie5` on `short`. And recall that my guess is that the shorter designator
-labels are probably more common.
+So `one-big-match` is still a bit faster, but `by-trie5` is pretty close. As
+is `by-trie4`:
 
-With that said, I had been thinking that the improvement here would be much
-bigger. Or perhaps stated differently, I didn't think `one-big-match` would be
+```
+$ critcmp friendly -g '.*?/(.*)' -f 'by-trie4|one-big-match/'
+group     friendly/by-trie4/                     friendly/one-big-match/
+-----     ------------------                     -----------------------
+long      1.53     10.0±0.18ns        ? ?/sec    1.00      6.6±0.25ns        ? ?/sec
+medium    1.45      6.1±0.13ns        ? ?/sec    1.00      4.2±0.09ns        ? ?/sec
+short     1.00      2.8±0.02ns        ? ?/sec    1.06      2.9±0.05ns        ? ?/sec
+```
+
+With that said, I had been thinking that the trie approach here would be much
+better. Or perhaps stated differently, I didn't think `one-big-match` would be
 as fast as it is here. Moreover, one problem with `by-trie5` is that it uses
 about 3 times the amount of memory that `by-trie4` does. I think this could be
 mitigated somewhat with some effort, but I'm not sure if it can be as compact
-due to the pre-multiplied state identifiers.
+due to the pre-multiplied state identifiers. (And it seems like `by-trie4` is
+faster anyway, although this has oscillated back-and-forth as I've run the
+benchmarks, so there's clearly some noise here.)
 
 Because of that, my thinking is that the memory usage, complexity and extra
 code that come with the trie approach isn't worth it over the `one-big-match`
@@ -242,12 +253,12 @@ having less overhead. However, I wanted to incorporate it in this benchmark as
 a signpost. So let's see how it fairs:
 
 ```
-$ critcmp friendly -g '.*?/(.*)' -f 'by-trie[15]|aho-corasick'
-group     friendly/aho-corasick/                 friendly/by-trie1/                     friendly/by-trie5/
------     ----------------------                 ------------------                     ------------------
-long      1.54     16.1±0.12ns        ? ?/sec    2.67     27.9±0.18ns        ? ?/sec    1.00     10.5±0.06ns        ? ?/sec
-medium    2.24     11.0±0.13ns        ? ?/sec    3.35     16.5±0.11ns        ? ?/sec    1.00      4.9±0.10ns        ? ?/sec
-short     2.54      5.5±0.04ns        ? ?/sec    3.03      6.6±0.05ns        ? ?/sec    1.00      2.2±0.04ns        ? ?/sec
+$ critcmp friendly -g '.*?/(.*)' -f 'by-trie[145]|aho-corasick'
+group     friendly/aho-corasick/                 friendly/by-trie1/                     friendly/by-trie4/                     friendly/by-trie5/
+-----     ----------------------                 ------------------                     ------------------                     ------------------
+long      1.60     16.0±0.10ns        ? ?/sec    2.78     27.9±0.12ns        ? ?/sec    1.00     10.0±0.18ns        ? ?/sec    1.09     10.9±0.19ns        ? ?/sec
+medium    1.79     10.9±0.09ns        ? ?/sec    2.53     15.4±0.07ns        ? ?/sec    1.00      6.1±0.13ns        ? ?/sec    1.03      6.2±0.09ns        ? ?/sec
+short     2.00      5.5±0.03ns        ? ?/sec    2.42      6.6±0.09ns        ? ?/sec    1.01      2.8±0.02ns        ? ?/sec    1.00      2.7±0.07ns        ? ?/sec
 ```
 
 Interestingly, `aho-corasick` does beat my initial trie implementation! I
@@ -284,9 +295,9 @@ I did try the `phf` crate, but it didn't do as well as `by-trie4`:
 $ critcmp friendly -g '.*?/(.*)' -f 'by-trie[14]|phf'
 group     friendly/by-trie1/                     friendly/by-trie4/                     friendly/phf/
 -----     ------------------                     ------------------                     -------------
-long      2.38     27.9±0.18ns        ? ?/sec    1.00     11.8±0.07ns        ? ?/sec    1.44     17.0±0.15ns        ? ?/sec
-medium    2.82     16.5±0.11ns        ? ?/sec    1.00      5.8±0.18ns        ? ?/sec    2.36     13.8±0.22ns        ? ?/sec
-short     2.43      6.6±0.05ns        ? ?/sec    1.00      2.7±0.02ns        ? ?/sec    3.95     10.7±0.09ns        ? ?/sec
+long      2.78     27.9±0.12ns        ? ?/sec    1.00     10.0±0.18ns        ? ?/sec    1.65     16.6±0.08ns        ? ?/sec
+medium    2.53     15.4±0.07ns        ? ?/sec    1.00      6.1±0.13ns        ? ?/sec    2.23     13.6±0.09ns        ? ?/sec
+short     2.39      6.6±0.09ns        ? ?/sec    1.00      2.8±0.02ns        ? ?/sec    3.86     10.6±0.07ns        ? ?/sec
 ```
 
 I do wonder if there is a way to devise a perfect hash function tailored to
@@ -434,21 +445,20 @@ quite clear (to me) how to write Rust in a way that leads to optimal codegen.
 But let's see how the above fairs:
 
 ```
-$ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|one-big-match|gendfa1'
+$ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|one-big-match/|gendfa1'
 group     friendly/by-gendfa1/                   friendly/by-trie5/                     friendly/one-big-match/
 -----     --------------------                   ------------------                     -----------------------
-long      1.97     16.2±0.11ns        ? ?/sec    1.27     10.5±0.06ns        ? ?/sec    1.00      8.2±0.14ns        ? ?/sec
-medium    1.99      9.8±0.04ns        ? ?/sec    1.00      4.9±0.10ns        ? ?/sec    1.08      5.3±0.09ns        ? ?/sec
-short     1.82      4.0±0.06ns        ? ?/sec    1.00      2.2±0.04ns        ? ?/sec    1.77      3.9±0.05ns        ? ?/sec
+long      1.99     13.0±0.05ns        ? ?/sec    1.66     10.9±0.19ns        ? ?/sec    1.00      6.6±0.25ns        ? ?/sec
+medium    1.89      7.9±0.03ns        ? ?/sec    1.49      6.2±0.09ns        ? ?/sec    1.00      4.2±0.09ns        ? ?/sec
+short     1.42      3.9±0.05ns        ? ?/sec    1.00      2.7±0.07ns        ? ?/sec    1.07      2.9±0.05ns        ? ?/sec
 ```
 
 Well... that's disappointing. My `gendfa1` is slower than `one-big-match`
-for `medium` and `long`, and tied on `short`. I was hoping it would be _faster_
-since it works in a single pass. Looking at the codegen for `gendfa1`, it looks
-like a state machine, but there are a lot more `mov` instructions than in
-`one-big-match`. I don't know enough about optimizing compilers to figure out
-what I'm doing wrong, or even if convincing `rustc` to emit better codegen is
-possible in this case.
+across the board. I was hoping it would be _faster_ since it works in a single
+pass. Looking at the codegen for `gendfa1`, it looks like a state machine, but
+there are a lot more `mov` instructions than in `one-big-match`. I don't know
+enough about optimizing compilers to figure out what I'm doing wrong, or even
+if convincing `rustc` to emit better codegen is possible in this case.
 
 ### Generated DFA... in C
 
@@ -571,17 +581,16 @@ to jump to it. It's very nice.
 So how does C compare?
 
 ```
-$ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|one-big-match|gendfa1|gencdfa1'
+$ critcmp friendly -g '.*?/(.*)' -f 'by-trie5|one-big-match/|gendfa1|gencdfa1'
 group     friendly/by-gencdfa1/                  friendly/by-gendfa1/                   friendly/by-trie5/                     friendly/one-big-match/
 -----     ---------------------                  --------------------                   ------------------                     -----------------------
-long      1.00      4.7±0.05ns        ? ?/sec    3.46     16.2±0.11ns        ? ?/sec    2.24     10.5±0.06ns        ? ?/sec    1.76      8.2±0.14ns        ? ?/sec
-medium    1.00      3.9±0.18ns        ? ?/sec    2.49      9.8±0.04ns        ? ?/sec    1.25      4.9±0.10ns        ? ?/sec    1.35      5.3±0.09ns        ? ?/sec
-short     1.16      2.5±0.03ns        ? ?/sec    1.82      4.0±0.06ns        ? ?/sec    1.00      2.2±0.04ns        ? ?/sec    1.77      3.9±0.05ns        ? ?/sec
+long      1.00      4.8±0.12ns        ? ?/sec    2.72     13.0±0.05ns        ? ?/sec    2.28     10.9±0.19ns        ? ?/sec    1.37      6.6±0.25ns        ? ?/sec
+medium    1.00      3.5±0.11ns        ? ?/sec    2.26      7.9±0.03ns        ? ?/sec    1.79      6.2±0.09ns        ? ?/sec    1.20      4.2±0.09ns        ? ?/sec
+short     1.00      2.6±0.05ns        ? ?/sec    1.46      3.9±0.05ns        ? ?/sec    1.03      2.7±0.07ns        ? ?/sec    1.10      2.9±0.05ns        ? ?/sec
 ```
 
 Wow. Finally. We've handedly beaten the state machine generated by
-`one-big-match`. And the C state machine is faster than everything else, except
-for the `short` benchmark where it is slightly slower than `by-trie5`.
+`one-big-match`. And the C state machine is faster than everything else.
 
 I'd love for Rust to be able to generate code like we did with C above because
 I don't want to add a dependency on C to Jiff. Moreover, because of the FFI
@@ -591,10 +600,87 @@ couldn't get it to work), which presumably incurs a performance penalty here.
 So in theory, if we could get Rust code to generate the same thing as the C
 code, it might be even faster because it would be more easily inlined.
 
+### One big match... but with prefix matching
+
+Much to my chagrin, I did not think to try this initially. But, you can
+actually match on prefixes of slices. Like this:
+
+```rust
+match haystack {
+    &[b'm', b'i', b'l', b'l', b'i', b's', b'e', b'c', b'o', b'n', b'd', b's', ..] => {
+        Some((Unit::Millisecond, 12))
+    }
+    &[b'm', b'i', b'c', b'r', b'o', b's', b'e', b'c', b'o', b'n', b'd', b's', ..] => {
+        Some((Unit::Microsecond, 12))
+    }
+    &[b'n', b'a', b'n', b'o', b's', b'e', b'c', b'o', b'n', b'd', b's', ..] => {
+        Some((Unit::Nanosecond, 11))
+    }
+    &[b'm', b'i', b'l', b'l', b'i', b's', b'e', b'c', b'o', b'n', b'd', ..] => {
+        Some((Unit::Millisecond, 11))
+    }
+    &[b'm', b'i', b'c', b'r', b'o', b's', b'e', b'c', b'o', b'n', b'd', ..] => {
+        Some((Unit::Microsecond, 11))
+    }
+    &[b'n', b'a', b'n', b'o', b's', b'e', b'c', b'o', b'n', b'd', ..] => {
+        Some((Unit::Nanosecond, 10))
+    }
+    &[b's', b'e', b'c', b'o', b'n', b'd', b's', ..] => {
+        Some((Unit::Second, 7))
+    }
+    // ... and so on
+    &[b'y', ..] => Some((Unit::Year, 1)),
+    &[b'w', ..] => Some((Unit::Week, 1)),
+    &[b's', ..] => Some((Unit::Second, 1)),
+    &[b'm', ..] => Some((Unit::Minute, 1)),
+    &[b'h', ..] => Some((Unit::Hour, 1)),
+    &[b'd', ..] => Some((Unit::Day, 1)),
+    _ => None,
+}
+```
+
+This eliminates our two-pass approach when using `one-big-match` and gives the
+compiler a bit more information about what it is we're trying to do. The only
+catch is that we need to make sure we've sorted our prefixes with the longest
+coming first, otherwise something like `m` (for minutes) will always match,
+even when the label is `millis`. But this is fine for this particular set of
+words.
+
+Since the above is supremely annoying to write by hand for even
+modestly sized sets of words, I wrote a [prefix `match` generator for
+it](gen-match-prefix/main.rs).
+
+So how does it compare with the generated DFA in C code?
+
+```
+$ critcmp friendly -g '.*?/(.*)' -f 'gencdfa1|one-big-match-prefix'
+group     friendly/by-gencdfa1/                  friendly/one-big-match-prefix/
+-----     ---------------------                  ------------------------------
+long      1.90      4.8±0.12ns        ? ?/sec    1.00      2.5±0.06ns        ? ?/sec
+medium    1.77      3.5±0.11ns        ? ?/sec    1.00      2.0±0.06ns        ? ?/sec
+short     1.00      2.6±0.05ns        ? ?/sec    1.25      3.3±0.09ns        ? ?/sec
+```
+
+Nice. So quite a bit better on `medium` and `long`, and slightly slower on
+`short`. I find it _very_ interesting that both `medium` and `long` are
+actually faster than `short`. I wonder if the compiler using some kind of jump
+table based on length. Namely, the `long` benchmark measures the time it takes
+to recognize `milliseconds`, which is 12 bytes long. There is only one other
+label of that length: `microseconds`. But I'm not quite sure how it would use
+this information to speed things up. Every byte still needs to be checked.
+
+So in the end, we were able to generate better code than we did manually with
+C, but I don't know if that would work for every case. If our problem were
+more complicated, like, say, encoding an arbitrary state machine that couldn't
+be expressed as a `match` statement of literal prefixes, then C might have an
+edge here that is difficult or impossible to beat with Rust.
+
 ## Questions
 
 I don't think my above exploration is exhaustive. And there are definitely some
-unanswered questions that I haven't really dug into fully yet.
+unanswered questions that I haven't really dug into fully yet. I generally
+didn't analyze the code generated too closely to get a better sense of what
+precisely each technique was actually doing.
 
 Firstly, can we come up with a minimal (or nearly minimal) perfect hash
 function tailored to these unit designator labels that is cache efficient?

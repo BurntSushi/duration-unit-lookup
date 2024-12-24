@@ -1,0 +1,11 @@
+[package]
+name = "gen-match-prefix"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gen-match-prefix"
+path = "main.rs"
+
+[dependencies]
+anyhow = "1.0.94"
