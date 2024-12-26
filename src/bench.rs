@@ -304,8 +304,36 @@ fn by_gencdfa1(c: &mut Criterion) {
     });
 }
 
+fn by_simd(c: &mut Criterion) {
+    c.bench_function(&format!("by-simd/short"), |b| {
+        b.iter(|| {
+            let input = bb(b"y 5 months");
+            let (unit, remaining) = by_simd::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Year);
+            assert_eq!(remaining, b" 5 months");
+        })
+    });
+    c.bench_function(&format!("by-simd/medium"), |b| {
+        b.iter(|| {
+            let input = bb(b"months 5 days");
+            let (unit, remaining) = by_simd::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Month);
+            assert_eq!(remaining, b" 5 days");
+        })
+    });
+    c.bench_function(&format!("by-simd/long"), |b| {
+        b.iter(|| {
+            let input = bb(b"milliseconds 5 nanoseconds");
+            let (unit, remaining) = by_simd::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Millisecond);
+            assert_eq!(remaining, b" 5 nanoseconds");
+        })
+    });
+}
+
 criterion::criterion_group!(
     benches,
+    by_simd,
     one_big_match,
     one_big_match_prefix,
     aho_corasick,
