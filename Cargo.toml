@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["gendfa", "gen-match-prefix"]
+members = ["gendfa", "gen-match-prefix", "gen-simd"]
 
 [lib]
 bench = false
