@@ -1,6 +1,10 @@
+#![feature(stdarch_x86_avx512)]
+#![feature(avx512_target_feature)]
+
 pub mod aho;
 pub mod by_gencdfa1;
 pub mod by_gendfa1;
+pub mod by_simd;
 pub mod by_trie1;
 pub mod by_trie2;
 pub mod by_trie3;
