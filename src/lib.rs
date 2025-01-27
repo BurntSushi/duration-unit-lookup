@@ -7,6 +7,7 @@ pub mod by_trie3;
 pub mod by_trie4;
 pub mod by_trie5;
 mod gendfa1;
+pub mod hashify;
 pub mod one_big_match;
 pub mod one_big_match_prefix;
 mod one_big_match_prefix_gen;

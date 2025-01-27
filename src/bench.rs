@@ -115,6 +115,33 @@ fn phf(c: &mut Criterion) {
     });
 }
 
+fn hashify(c: &mut Criterion) {
+    c.bench_function(&format!("hashify/short"), |b| {
+        b.iter(|| {
+            let input = bb(b"y 5 months");
+            let (unit, remaining) = hashify::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Year);
+            assert_eq!(remaining, b" 5 months");
+        })
+    });
+    c.bench_function(&format!("hashify/medium"), |b| {
+        b.iter(|| {
+            let input = bb(b"months 5 days");
+            let (unit, remaining) = hashify::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Month);
+            assert_eq!(remaining, b" 5 days");
+        })
+    });
+    c.bench_function(&format!("hashify/long"), |b| {
+        b.iter(|| {
+            let input = bb(b"milliseconds 5 nanoseconds");
+            let (unit, remaining) = hashify::lookup(input).unwrap();
+            assert_eq!(unit, Unit::Millisecond);
+            assert_eq!(remaining, b" 5 nanoseconds");
+        })
+    });
+}
+
 fn by_trie1(c: &mut Criterion) {
     c.bench_function(&format!("by-trie1/short"), |b| {
         b.iter(|| {
@@ -310,6 +337,7 @@ criterion::criterion_group!(
     one_big_match_prefix,
     aho_corasick,
     phf,
+    hashify,
     by_trie1,
     by_trie2,
     by_trie3,
